@@ -13,6 +13,9 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com"
 # Categories to exclude (sports, price predictions are less predictable)
 EXCLUDED_TAGS = {"sports", "nfl", "nba", "mlb", "soccer", "esports", "price"}
 
+# Slug patterns to exclude (short-term price gambling markets)
+EXCLUDED_SLUG_PATTERNS = ["up-or-down", "updown", "-15m-", "-1h-", "-4h-"]
+
 
 def get_markets_list(
     limit: int = 50,
@@ -74,6 +77,11 @@ def get_markets_list(
         tag_slugs = {t.get("slug", "").lower() for t in tags}
         
         if tag_slugs & EXCLUDED_TAGS:
+            continue
+        
+        # Check slug for exclusion patterns (short-term price betting)
+        event_slug = event.get("slug", "").lower()
+        if any(pattern in event_slug for pattern in EXCLUDED_SLUG_PATTERNS):
             continue
         
         # Category filter
