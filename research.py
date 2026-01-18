@@ -226,8 +226,8 @@ Be honest about uncertainty. If you cannot find enough information, set confiden
                 data = json.loads(json_match.group())
                 return {
                     "summary": data.get("summary", ""),
-                    "estimated_probability": float(data.get("estimated_probability", 0.5)),
-                    "confidence": float(data.get("confidence", 0.5)),
+                    "estimated_probability": float(data.get("estimated_probability") or 0.5),
+                    "confidence": float(data.get("confidence") or 0.5),
                     "key_factors": data.get("key_factors", []),
                     "sources": []
                 }
