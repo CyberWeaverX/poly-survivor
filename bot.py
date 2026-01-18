@@ -697,13 +697,68 @@ Start this trading cycle. Review the previous summary above and continue from wh
             return None
     
     def _save_summary(self, summary: str):
-        """Save the cycle summary for the next run."""
+        """Save the cycle summary for the next run and to history database."""
+        # Save to file (for next cycle context)
         summary_file = "last_summary.txt"
         try:
             with open(summary_file, "w", encoding="utf-8") as f:
                 f.write(summary)
         except Exception as e:
-            print(f"  (Warning: Could not save summary: {e})")
+            print(f"  (Warning: Could not save summary file: {e})")
+        
+        # Also save to database (for history)
+        try:
+            self._save_cycle_to_db(summary)
+        except Exception as e:
+            print(f"  (Warning: Could not save cycle history: {e})")
+    
+    def _save_cycle_to_db(self, summary: str):
+        """Save cycle report to SQLite database."""
+        import sqlite3
+        from datetime import datetime
+        
+        db_path = "research_cache.db"  # Reuse existing database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Create table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cycle_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cycle_time TEXT,
+                summary TEXT,
+                balance_available REAL,
+                balance_locked REAL,
+                balance_total REAL,
+                dry_run INTEGER
+            )
+        """)
+        
+        # Extract balance from summary (simple parsing)
+        import re
+        balance_match = re.search(r'Available: \$(\d+\.?\d*)', summary)
+        locked_match = re.search(r'Locked: \$(\d+\.?\d*)', summary)
+        total_match = re.search(r'Balance: \$(\d+\.?\d*)', summary)
+        
+        balance_available = float(balance_match.group(1)) if balance_match else 0
+        balance_locked = float(locked_match.group(1)) if locked_match else 0
+        balance_total = float(total_match.group(1)) if total_match else 0
+        
+        cursor.execute("""
+            INSERT INTO cycle_history 
+            (cycle_time, summary, balance_available, balance_locked, balance_total, dry_run)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.utcnow().isoformat(),
+            summary,
+            balance_available,
+            balance_locked,
+            balance_total,
+            1 if self.dry_run else 0
+        ))
+        
+        conn.commit()
+        conn.close()
 
 
 # =============================================================================
