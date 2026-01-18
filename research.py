@@ -42,9 +42,25 @@ class ResearchService:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # Main research table (stores latest result per market)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS research (
                 market_id TEXT PRIMARY KEY,
+                market_title TEXT,
+                research_time TEXT,
+                summary TEXT,
+                estimated_probability REAL,
+                confidence REAL,
+                key_factors TEXT,
+                sources TEXT
+            )
+        """)
+        
+        # History table (stores all research records)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS research_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                market_id TEXT,
                 market_title TEXT,
                 research_time TEXT,
                 summary TEXT,
@@ -231,10 +247,13 @@ Be honest about uncertainty. If you cannot find enough information, set confiden
         }
     
     def _save_research(self, market_id: str, market_title: str, result: dict):
-        """Save research result to database"""
+        """Save research result to database (both current and history)"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        research_time = datetime.utcnow().isoformat()
+        
+        # Save to main table (replaces previous)
         cursor.execute("""
             INSERT OR REPLACE INTO research 
             (market_id, market_title, research_time, summary, 
@@ -243,7 +262,24 @@ Be honest about uncertainty. If you cannot find enough information, set confiden
         """, (
             market_id,
             market_title,
-            datetime.utcnow().isoformat(),
+            research_time,
+            result.get("summary", ""),
+            result.get("estimated_probability", 0.5),
+            result.get("confidence", 0.5),
+            json.dumps(result.get("key_factors", [])),
+            json.dumps(result.get("sources", []))
+        ))
+        
+        # Also save to history table (keeps all records)
+        cursor.execute("""
+            INSERT INTO research_history 
+            (market_id, market_title, research_time, summary, 
+             estimated_probability, confidence, key_factors, sources)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            market_id,
+            market_title,
+            research_time,
             result.get("summary", ""),
             result.get("estimated_probability", 0.5),
             result.get("confidence", 0.5),
