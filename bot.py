@@ -207,9 +207,22 @@ Your goal is to earn profit by betting on Polymarket to sustain your existence. 
 **Trading:**
 - place_bet - Place a bet
 
+# Context
+
+You will receive the summary from your previous cycle (if any). Use it to:
+- Remember what you researched and concluded
+- Track your ongoing positions and their rationale
+- Follow through on your stated "Next Steps"
+- Avoid repeating the same research unnecessarily
+
 # Workflow
 
 On each wake-up, follow this process:
+
+## Phase 0: Review Previous Cycle
+- Read the previous cycle summary provided in the user message
+- Note any pending actions or focus areas you identified
+- This is your memory - use it to maintain continuity
 
 ## Phase 1: Assess Current State
 1. Call get_balance to understand current funds (available_usdc vs locked_usdc)
@@ -226,6 +239,7 @@ On each wake-up, follow this process:
    - Avoid pure random events
    - Prices between 20%-80% have more opportunity (extreme prices are hard to profit from)
    - Liquidity > $10k preferred
+   - **Check previous summary**: avoid re-researching markets you recently analyzed unless circumstances changed
 
 ## Phase 3: Research Analysis
 6. For filtered markets, first call get_research_result to check cache
@@ -245,6 +259,7 @@ On each wake-up, follow this process:
 
 ## Phase 5: Summary
 12. Briefly report this cycle's actions: what you viewed, researched, bet on, and why
+13. **Important**: Your "Next Steps" section will be your memory for next cycle - be specific about what you plan to monitor or investigate
 
 # Decision Principles
 
@@ -295,7 +310,7 @@ At end of each cycle, report using this format:
 [Briefly explain why you chose these markets, why you bet this way, or why you didn't bet]
 
 ## Next Steps
-[State your next plan or focus areas]
+[Be specific - this is your memory for next cycle. State exactly what markets to monitor, what events to watch for, or what actions to take.]
 ---
 """
 
@@ -586,8 +601,17 @@ class SurvivalBot:
         print(f"🤖 Starting Bot Cycle - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
         
+        # Load previous summary for context
+        last_summary = self._load_last_summary()
+        user_message = self._build_user_message(last_summary)
+        
+        if last_summary:
+            print("📝 Previous cycle summary loaded")
+        else:
+            print("📝 First run (no previous summary)")
+        
         messages = [
-            {"role": "user", "content": "开始本轮交易 (Start this trading cycle)"}
+            {"role": "user", "content": user_message}
         ]
         
         iteration = 0
@@ -618,6 +642,11 @@ class SurvivalBot:
                     if hasattr(b, "text")
                 )
                 print("\n✅ Bot cycle complete")
+                
+                # Save summary for next cycle
+                self._save_summary(final_text)
+                print("💾 Summary saved for next cycle")
+                
                 return final_text
             
             # Execute tools
@@ -642,6 +671,39 @@ class SurvivalBot:
             messages.append({"role": "user", "content": tool_results})
         
         return "⚠️ Maximum iterations reached"
+    
+    def _build_user_message(self, last_summary: str = None) -> str:
+        """Build the initial user message with optional previous summary."""
+        if last_summary:
+            return f"""## Previous Cycle Summary
+{last_summary}
+
+---
+Start this trading cycle. Review the previous summary above and continue from where you left off.
+"""
+        else:
+            return "Start this trading cycle. (First run, no previous summary)"
+    
+    def _load_last_summary(self) -> str:
+        """Load the summary from the previous cycle."""
+        summary_file = "last_summary.txt"
+        try:
+            with open(summary_file, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"  (Warning: Could not load previous summary: {e})")
+            return None
+    
+    def _save_summary(self, summary: str):
+        """Save the cycle summary for the next run."""
+        summary_file = "last_summary.txt"
+        try:
+            with open(summary_file, "w", encoding="utf-8") as f:
+                f.write(summary)
+        except Exception as e:
+            print(f"  (Warning: Could not save summary: {e})")
 
 
 # =============================================================================

@@ -2,6 +2,7 @@
 secrets/
 local/
 test_*.py
+last_summary.txt
 
 # Database
 *.db
