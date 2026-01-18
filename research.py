@@ -66,7 +66,7 @@ class ResearchService:
             market_id: Market ID
         
         Returns:
-            Research result dict or None if not found/expired
+            Research result dict or None if not found
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -81,20 +81,25 @@ class ResearchService:
         if not row:
             return None
         
-        # Check expiry
+        # Calculate hours since research
         research_time = datetime.fromisoformat(row[2])
-        if datetime.utcnow() - research_time > timedelta(hours=CACHE_EXPIRY_HOURS):
-            return None  # Expired
+        hours_ago = (datetime.utcnow() - research_time).total_seconds() / 3600
+        
+        # Count sources to indicate reliability
+        sources = json.loads(row[7]) if row[7] else []
         
         return {
             "market_id": row[0],
             "market_title": row[1],
             "research_time": row[2],
+            "hours_ago": round(hours_ago, 1),
             "summary": row[3],
             "estimated_probability": row[4],
             "confidence": row[5],
             "key_factors": json.loads(row[6]) if row[6] else [],
-            "sources": json.loads(row[7]) if row[7] else []
+            "sources": sources,
+            "sources_count": len(sources),
+            "note": f"Research from {round(hours_ago, 1)} hours ago with {len(sources)} sources. Re-research if outdated or needs update."
         }
     
     def research_market_and_save(
